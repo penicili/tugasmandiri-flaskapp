@@ -1,17 +1,13 @@
-import sqlite3
 import os
+from supabase import create_client, Client
 
-def get_db_path() -> str:
-    return os.getenv('DB_DATABASE', 'app.db')
+_client: Client | None = None
 
-def get_db() -> sqlite3.Connection:
-    return sqlite3.connect(get_db_path())
+def get_db() -> Client:
+    global _client
 
-def init_db():
-    conn = get_db()
-    conn.execute(
-        'CREATE TABLE IF NOT EXISTS books '
-        '(id INTEGER PRIMARY KEY, title TEXT, author TEXT, published_year INTEGER)'
-    )
-    conn.commit()
-    conn.close()
+    if _client is None:
+        url = os.getenv('SUPABASE_URL')
+        key = os.getenv('SUPABASE_PUBLISHABLE_KEY')
+        _client = create_client(url, key)
+    return _client

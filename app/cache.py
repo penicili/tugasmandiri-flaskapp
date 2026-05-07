@@ -1,6 +1,9 @@
 import json
+import logging
 import os
 import redis
+
+logger = logging.getLogger(__name__)
 
 _client: redis.Redis | None = None
 
@@ -11,16 +14,23 @@ def get_cache() -> redis.Redis:
     return _client
 
 def cache_get(key: str):
-    data = get_cache().get(key)
-    if data is None:
-        return None
     try:
+        data = get_cache().get(key)
+        if data is None:
+            return None
         return json.loads(str(data))
-    except json.JSONDecodeError:
+    except (redis.RedisError, json.JSONDecodeError) as e:
+        logger.warning("cache_get failed: %s", e)
         return None
 
 def cache_set(key: str, value, ttl: int = 60):
-    get_cache().setex(key, ttl, json.dumps(value))
+    try:
+        get_cache().setex(key, ttl, json.dumps(value))
+    except redis.RedisError as e:
+        logger.warning("cache_set failed: %s", e)
 
 def cache_delete(*keys: str):
-    get_cache().delete(*keys)
+    try:
+        get_cache().delete(*keys)
+    except redis.RedisError as e:
+        logger.warning("cache_delete failed: %s", e)

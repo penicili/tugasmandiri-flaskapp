@@ -2,7 +2,6 @@ import logging
 import traceback
 import dotenv
 from flask import Flask, jsonify
-from app.db import init_db
 
 logger = logging.getLogger(__name__)
 
@@ -10,8 +9,6 @@ logger = logging.getLogger(__name__)
 def create_app() -> Flask:
     dotenv.load_dotenv()
     app = Flask(__name__)
-
-    init_db()
 
     from app.routes import bp
     app.register_blueprint(bp)

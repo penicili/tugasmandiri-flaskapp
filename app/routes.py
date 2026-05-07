@@ -20,20 +20,15 @@ def get_book(book_id: int | None = None):
     if cached is not None:
         return jsonify(cached), 200
 
-    conn = database.get_db()
-    cursor = conn.cursor()
+    client = database.get_db()
     if book_id is not None:
-        cursor.execute('SELECT * FROM books WHERE id = ?', (book_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row is None:
+        res = client.table('books').select('*').eq('id', book_id).execute()
+        if not res.data:
             return '', 404
-        result = Book.from_row(row).to_dict()
+        result = res.data[0]
     else:
-        cursor.execute('SELECT * FROM books')
-        rows = cursor.fetchall()
-        conn.close()
-        result = [Book.from_row(r).to_dict() for r in rows]
+        res = client.table('books').select('*').execute()
+        result = res.data
 
     cache.cache_set(cache_key, result)
     return jsonify(result), 200
@@ -44,19 +39,16 @@ def add_book():
     data = request.get_json()
     if not data or not all(k in data for k in ('title', 'author', 'published_year')):
         return '', 400
-    conn = database.get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        'INSERT INTO books (title, author, published_year) VALUES (?, ?, ?)',
-        (data['title'], data['author'], data['published_year']),
-    )
-    conn.commit()
-    new_id = cursor.lastrowid
-    cursor.execute('SELECT * FROM books WHERE id = ?', (new_id,))
-    row = cursor.fetchone()
-    conn.close()
+    client = database.get_db()
+    res = client.table('books').insert({
+        'title': data['title'],
+        'author': data['author'],
+        'published_year': data['published_year'],
+    }).execute()
+    if not res.data:
+        return '', 400
     cache.cache_delete('books:all')
-    return jsonify(Book.from_row(row).to_dict()), 201
+    return jsonify(res.data[0]), 201
 
 
 @bp.put('/books/<int:book_id>')
@@ -64,33 +56,23 @@ def update_book(book_id: int):
     data = request.get_json()
     if not data or not all(k in data for k in ('title', 'author', 'published_year')):
         return '', 400
-    conn = database.get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        'UPDATE books SET title = ?, author = ?, published_year = ? WHERE id = ?',
-        (data['title'], data['author'], data['published_year'], book_id),
-    )
-    conn.commit()
-    cursor.execute('SELECT * FROM books WHERE id = ?', (book_id,))
-    row = cursor.fetchone()
-    conn.close()
-    if row is None:
+    client = database.get_db()
+    res = client.table('books').update({
+        'title': data['title'],
+        'author': data['author'],
+        'published_year': data['published_year'],
+    }).eq('id', book_id).execute()
+    if not res.data:
         return '', 404
-    result = Book.from_row(row).to_dict()
     cache.cache_delete(f'book:{book_id}', 'books:all')
-    return jsonify(result), 200
+    return jsonify(res.data[0]), 200
 
 
 @bp.delete('/books/<int:book_id>')
 def delete_book(book_id: int):
-    conn = database.get_db()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id FROM books WHERE id = ?', (book_id,))
-    if cursor.fetchone() is None:
-        conn.close()
+    client = database.get_db()
+    res = client.table('books').delete().eq('id', book_id).execute()
+    if not res.data:
         return '', 404
-    cursor.execute('DELETE FROM books WHERE id = ?', (book_id,))
-    conn.commit()
-    conn.close()
     cache.cache_delete(f'book:{book_id}', 'books:all')
     return jsonify({'message': f'Book {book_id} deleted successfully'}), 200
