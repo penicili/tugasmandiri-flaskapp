@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from app import db as database
+from app import cache
 from app.models import Book
 
 bp = Blueprint('books', __name__)
@@ -13,6 +14,12 @@ def health_check():
 @bp.get('/books')
 @bp.get('/books/<int:book_id>')
 def get_book(book_id: int | None = None):
+    cache_key = f'book:{book_id}' if book_id is not None else 'books:all'
+
+    cached = cache.cache_get(cache_key)
+    if cached is not None:
+        return jsonify(cached), 200
+
     conn = database.get_db()
     cursor = conn.cursor()
     if book_id is not None:
@@ -21,12 +28,15 @@ def get_book(book_id: int | None = None):
         conn.close()
         if row is None:
             return '', 404
-        return jsonify(Book.from_row(row).to_dict()), 200
+        result = Book.from_row(row).to_dict()
     else:
         cursor.execute('SELECT * FROM books')
         rows = cursor.fetchall()
         conn.close()
-        return jsonify([Book.from_row(r).to_dict() for r in rows]), 200
+        result = [Book.from_row(r).to_dict() for r in rows]
+
+    cache.cache_set(cache_key, result)
+    return jsonify(result), 200
 
 
 @bp.post('/books')
@@ -45,6 +55,7 @@ def add_book():
     cursor.execute('SELECT * FROM books WHERE id = ?', (new_id,))
     row = cursor.fetchone()
     conn.close()
+    cache.cache_delete('books:all')
     return jsonify(Book.from_row(row).to_dict()), 201
 
 
@@ -65,7 +76,9 @@ def update_book(book_id: int):
     conn.close()
     if row is None:
         return '', 404
-    return jsonify(Book.from_row(row).to_dict()), 200
+    result = Book.from_row(row).to_dict()
+    cache.cache_delete(f'book:{book_id}', 'books:all')
+    return jsonify(result), 200
 
 
 @bp.delete('/books/<int:book_id>')
@@ -79,4 +92,5 @@ def delete_book(book_id: int):
     cursor.execute('DELETE FROM books WHERE id = ?', (book_id,))
     conn.commit()
     conn.close()
+    cache.cache_delete(f'book:{book_id}', 'books:all')
     return jsonify({'message': f'Book {book_id} deleted successfully'}), 200
