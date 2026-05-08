@@ -5,12 +5,12 @@ from app.models import Book
 
 bp = Blueprint('books', __name__)
 
-
+# Endpoint health check
 @bp.get('/')
 def health_check():
     return 'OK', 200
 
-
+# endpoint get semua buku/berdasar id
 @bp.get('/books')
 @bp.get('/books/<int:book_id>')
 def get_book(book_id: int | None = None):
@@ -33,7 +33,7 @@ def get_book(book_id: int | None = None):
     cache.cache_set(cache_key, result)
     return jsonify(result), 200
 
-
+# endpoint untuk tambah buku baru
 @bp.post('/books')
 def add_book():
     data = request.get_json()
@@ -50,7 +50,7 @@ def add_book():
     cache.cache_delete('books:all')
     return jsonify(res.data[0]), 201
 
-
+# endpoint update buku
 @bp.put('/books/<int:book_id>')
 def update_book(book_id: int):
     data = request.get_json()
@@ -67,7 +67,7 @@ def update_book(book_id: int):
     cache.cache_delete(f'book:{book_id}', 'books:all')
     return jsonify(res.data[0]), 200
 
-
+# enpoint delete buku
 @bp.delete('/books/<int:book_id>')
 def delete_book(book_id: int):
     client = database.get_db()

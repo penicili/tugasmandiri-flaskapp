@@ -2,7 +2,7 @@ import os
 from supabase import create_client, Client
 
 _client: Client | None = None
-
+#  instansiasi klien database biar bisa dipakai
 def get_db() -> Client:
     global _client
 

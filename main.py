@@ -1,7 +1,7 @@
 import logging
 import waitress
 from app import create_app
-
+# Entry point aplikasi, jalankan WSGI dengan waitress
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     # aktifkan request log dari waitress
