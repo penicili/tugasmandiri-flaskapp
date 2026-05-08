@@ -12,6 +12,13 @@ def create_app() -> Flask:
 
     from app.routes import bp
     app.register_blueprint(bp)
+    @app.route('/favicon.ico')
+    def favicon():
+        return '', 204
+
+    @app.route('/robots.txt')
+    def robots():
+        return '', 204
 
     @app.errorhandler(Exception)
     def handle_exception(e):
